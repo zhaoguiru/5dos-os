@@ -1,98 +1,97 @@
 5DOS-OS Kernel Module v0.4.3
-=============================
-"带钩子和K值优先级的操作系统"
+============================
+"The Operating System with Hooks and K-Priority"
 
-作者：赵桂儒 (Guiru Zhao) <zhaoguiru@gmail.com>
-日期：2026-05-25
-许可：GPL
+Author: Guiru Zhao &lt;zhaoguiru@gmail.com&gt;
+Date: 2026-05-25
+License: GPL
 
-一、架构概览
-------------
-5DOS-OS 是在 Linux 内核上构建的五维操作系统原型，包含三层：
+Overview
+--------
+5DOS-OS is a Linux kernel module that implements Five-Dimensional Systems Theory (5D-ST) for process scheduling. It consists of three layers:
 
-1. 五维诊断层（Diagnostic Layer）
-   - 周期性扫描所有进程，计算五维协同系数 κ
-   - 输出：/proc/5dos/top, /proc/5dos/status
+1. Diagnostic Layer
+   - Periodically scans all processes and computes the five-dimensional synergy coefficient ¦Ê.
+   - Exposes: /proc/5dos/top, /proc/5dos/status
 
-2. 五维调度层（Scheduling Layer）
-   - 内核线程 "5dos-sched" 每 2 秒根据 κ 值调整进程 nice
-   - K值优先级映射：
-       STABLE  → nice = -20 (最高优先级)
-       GROWTH  → nice = -10
-       BIRTH   → nice = 0
-       IDLE    → nice = 10
-       LATENT  → nice = 19 (最低优先级)
-   - 控制开关：echo 1 > /proc/5dos/control
+2. Scheduling Layer
+   - A kernel thread "5dos-sched" adjusts process nice values every 2 seconds based on ¦Ê.
+   - K-Value Priority Mapping:
+       STABLE  ¡ú nice = -20 (highest priority)
+       GROWTH  ¡ú nice = -10
+       BIRTH   ¡ú nice = 0
+       IDLE    ¡ú nice = 10
+       LATENT  ¡ú nice = 19 (lowest priority)
+   - Control switch: echo 1 &gt; /proc/5dos/control
 
-3. 五维钩子层（Hook Layer）
-   - kprobe 拦截 kernel_clone（fork）和 __schedule
-   - fork 钩子：新进程创建时触发日志
-   - schedule 钩子：低协同进程（LATENT/IDLE）强制触发重新调度
-   - 控制开关：echo 1 > /proc/5dos/hook
+3. Hook Layer
+   - Uses kprobe to intercept kernel_clone (fork) and __schedule.
+   - Fork hook: logs new process creation events.
+   - Schedule hook: forces rescheduling for low-synergy processes (LATENT/IDLE).
+   - Control switch: echo 1 &gt; /proc/5dos/hook
 
-二、v0.4.3 关键修复
+Key Fixes in v0.4.3
 -------------------
-1. 读写锁保护（rwlock）
-   - update 定时器写 g 结构体时加写锁
-   - 调度线程和 proc 读取函数读 g 时加读锁
-   - 彻底消除并发导致的 κ=0 误判
+1. Read-Write Lock Protection (rwlock)
+   - The update timer acquires a write lock when writing the global entity table.
+   - The scheduling thread and /proc read handlers acquire read locks.
+   - Completely eliminates race conditions that previously caused sporadic ¦Ê=0 misclassifications.
 
-2. 内核线程保护（PF_KTHREAD）
-   - 调度层和钩子层均跳过内核线程（irq, migration, watchdog 等）
-   - 绝不修改内核线程 nice，避免系统崩溃
+2. Kernel Thread Protection (PF_KTHREAD)
+   - Both the scheduling layer and the hook layer skip kernel threads (irq, migration, watchdog, etc.).
+   - Never modifies the nice value of kernel threads, preventing system crashes.
 
-三、新增 /proc 接口
--------------------
-/proc/5dos/top       Top 20 实体排名（原有）
-/proc/5dos/status    系统全局状态（显示调度/钩子开关）
-/proc/5dos/schedmap  调度映射表（只显示用户态进程调整记录）
-/proc/5dos/control   写 1 启用五维调度，写 0 禁用
-/proc/5dos/hook      写 1 启用钩子系统，写 0 禁用
+/proc Interface
+---------------
+/proc/5dos/top       Top-20 entity ranking (existing)
+/proc/5dos/status    System-wide status (shows scheduling/hook switches)
+/proc/5dos/schedmap  Scheduling audit trail (records user-space priority adjustments only)
+/proc/5dos/control   Write 1 to enable 5D scheduling, 0 to disable
+/proc/5dos/hook      Write 1 to enable the hook system, 0 to disable
 
-四、编译环境
-------------
-测试平台：VMware Workstation 17 + Ubuntu 22.04 LTS
-内核版本：Linux 6.8.0-111-generic
-编译器：gcc-12
+Build Environment
+-----------------
+Tested on: VMware Workstation 17 + Ubuntu 22.04 LTS
+Kernel:     Linux 6.8.0-111-generic
+Compiler:   gcc-12
 
-五、编译加载
-------------
+Build and Load
+--------------
 cd 5dos-os
 make clean
 make
-sudo rmmod 5dos_os   # 卸载旧版
+sudo rmmod 5dos_os   # unload old version if present
 sudo insmod 5dos_os.ko
 
-六、启用五维调度
-----------------
+Enable 5D Scheduling
+----------------------
 echo 1 | sudo tee /proc/5dos/control
-cat /proc/5dos/schedmap    # 查看优先级调整记录
+cat /proc/5dos/schedmap    # view priority adjustment records
 
-七、启用钩子系统
-----------------
+Enable Hook System
+------------------
 echo 1 | sudo tee /proc/5dos/hook
-# 查看 dmesg 中的钩子日志：sudo dmesg | grep 5DOS-HOOK
+# View hook logs in dmesg: sudo dmesg | grep 5DOS-HOOK
 
-八、查看输出
-------------
+View Output
+-----------
 cat /proc/5dos/top
 cat /proc/5dos/status
 cat /proc/5dos/schedmap
 
-九、卸载
---------
+Unload
+------
 sudo rmmod 5dos_os
 
-十、文件清单
-------------
-5dos-os.c   内核模块源码（诊断 + 调度 + 钩子 + 锁保护，~550行）
-Makefile    编译脚本（含 enable/disable/hook-on/hook-off 快捷命令）
-README      本说明
+File Manifest
+-------------
+5dos-os.c   Kernel module source (diagnosis + scheduling + hooks + locking, ~550 lines)
+Makefile    Build script (includes enable/disable/hook-on/hook-off shortcuts)
+README      This document
 
-十一、注意事项
---------------
-1. 调度干预只修改 SCHED_NORMAL/BATCH/IDLE 用户态进程，不动实时进程和内核线程
-2. 钩子系统依赖 kprobe，若 kernel_clone 或 __schedule 符号不可解析，
-   钩子会自动降级（打印警告，不影响诊断和调度功能）
-3. 内核线程 5dos-sched 每 2 秒执行一次，可通过 /proc/5dos/schedmap 观察效果
-4. 若之前加载过旧版，务必先 sudo rmmod 5dos_os 再加载新版
+Cautions
+--------
+1. Scheduling intervention only modifies user-space processes with SCHED_NORMAL/BATCH/IDLE policies. Real-time processes and kernel threads are never touched.
+2. The hook system depends on kprobe. If kernel_clone or __schedule symbols are not resolvable, the hooks gracefully degrade (print a warning) without affecting diagnosis or scheduling.
+3. The kernel thread 5dos-sched executes every 2 seconds; observe its effects via /proc/5dos/schedmap.
+4. If a previous version was loaded, always run "sudo rmmod 5dos_os" before loading a new one.
