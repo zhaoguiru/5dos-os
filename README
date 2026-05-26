@@ -95,3 +95,8 @@ Cautions
 2. The hook system depends on kprobe. If kernel_clone or __schedule symbols are not resolvable, the hooks gracefully degrade (print a warning) without affecting diagnosis or scheduling.
 3. The kernel thread 5dos-sched executes every 2 seconds; observe its effects via /proc/5dos/schedmap.
 4. If a previous version was loaded, always run "sudo rmmod 5dos_os" before loading a new one.
+## Related Artifacts
+
+- 5DOS-OS (this repo): Zenodo DOI [10.5281/zenodo.20399222](https://doi.org/10.5281/zenodo.20399222)
+- 5DOS-Probe (Perception Layer): Zenodo DOI [10.5281/zenodo.20376186](https://doi.org/10.5281/zenodo.20376186)
+- 5DOS Architecture Paper: Zenodo DOI [10.5281/zenodo.20376185](https://doi.org/10.5281/zenodo.20376185)
