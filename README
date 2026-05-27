@@ -30,7 +30,7 @@ Overview
    - Schedule hook: forces rescheduling for low-synergy processes (LATENT/IDLE).
    - Control switch: echo 1 &gt; /proc/5dos/hook
 
-![5DOS Architecture](docs/5DOS_Architecture.png)
+![5DOS Architecture](5DOS_Architecture.png)
 Key Fixes in v0.4.3
 -------------------
 1. Read-Write Lock Protection (rwlock)
