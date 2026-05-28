@@ -1,4 +1,5 @@
 5DOS-OS Kernel Module v1.0 (Ratio Method). Author: Guiru Zhao <zhaoguiru@gmail.com>. License: GPL.
+![5DOS Architecture](docs/5DOS_Architecture.png)
 
 5DOS-OS is a Linux kernel module implementing Five-Dimensional Systems Theory (5D-ST) for process diagnosis and scheduling. It maps every process into five dimensions — Boundary (B), Reserve (R), Structure (S), Direction (D), and Intensity (I) — and computes external synergy coefficient κ and internal synergy coefficient σ via the ratio-based matching method.
 
