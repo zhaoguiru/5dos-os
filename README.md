@@ -1,103 +1,19 @@
-5DOS-OS Kernel Module v0.4.3
-============================
-"The Operating System with Hooks and K-Priority"
+5DOS-OS Kernel Module v1.0 (Ratio Method). Author: Guiru Zhao <zhaoguiru@gmail.com>. License: GPL.
 
-Author: Guiru Zhao &lt;zhaoguiru@gmail.com&gt;
-Date: 2026-05-25
-License: AGPL-3.0
+5DOS-OS is a Linux kernel module implementing Five-Dimensional Systems Theory (5D-ST) for process diagnosis and scheduling. It maps every process into five dimensions — Boundary (B), Reserve (R), Structure (S), Direction (D), and Intensity (I) — and computes external synergy coefficient κ and internal synergy coefficient σ via the ratio-based matching method.
 
-Overview
---------
-5DOS-OS is a Linux kernel module that implements Five-Dimensional Systems Theory (5D-ST) for process scheduling. It consists of three layers:
+Core Formula. The ratio matching degree is defined as γ(a,b) = min(a,b) / max(a,b). The external synergy coefficient κ measures how close each dimension is to the normalized ideal upper bound: κ = ∏ γ(x_d, 1.0) for d in {B,R,S,D,I}. The internal synergy coefficient σ measures five-dimensional balance via ten pairwise matching degrees: σ = ∏_{1≤i<j≤5} γ(x_i, x_j). Both coefficients are computed in fixed-point arithmetic with SCALE = 1000000.
 
-1. Diagnostic Layer
-   - Periodically scans all processes and computes the five-dimensional synergy coefficient ¦Ê.
-   - Exposes: /proc/5dos/top, /proc/5dos/status
+Architecture. The module consists of three layers. The Diagnostic Layer periodically scans all processes, normalizes the five dimensions against global maximums with an ontological floor on Intensity (I_ONTO_FLOOR = 100), computes κ and σ, and classifies each process into an ontological state: BIRTH, GROWTH, STABLE, DECAY, IDLE, DEATH, or LATENT. A process is classified as LATENT if its κ falls below 0.001 or its σ falls below 0.001, reflecting severe dimensional decoupling. The Scheduling Layer runs a kernel thread named 5dos-sched that adjusts user-space process nice values every 2000 milliseconds based on κ and state, while strictly skipping kernel threads (PF_KTHREAD) and real-time policies. The priority mapping is: STABLE maps to nice -20, GROWTH to -10, BIRTH to 0, IDLE to 10, and LATENT to 19. The Hook Layer uses kprobe to intercept kernel_clone and __schedule. The fork hook logs process creation events, and the schedule hook forces rescheduling for LATENT or IDLE processes. Both hooks skip kernel threads and degrade gracefully if symbol resolution fails.
 
-2. Scheduling Layer
-   - A kernel thread "5dos-sched" adjusts process nice values every 2 seconds based on ¦Ê.
-   - K-Value Priority Mapping:
-       STABLE  ¡ú nice = -20 (highest priority)
-       GROWTH  ¡ú nice = -10
-       BIRTH   ¡ú nice = 0
-       IDLE    ¡ú nice = 10
-       LATENT  ¡ú nice = 19 (lowest priority)
-   - Control switch: echo 1 &gt; /proc/5dos/control
+Key Safety Features. Read-write lock (rwlock) protection ensures the update timer holds a write lock when writing the global entity table, while scheduling and proc read handlers hold read locks, eliminating race conditions. Kernel thread protection ensures scheduling and hook layers never modify the nice value of kernel threads.
 
-3. Hook Layer
-   - Uses kprobe to intercept kernel_clone (fork) and __schedule.
-   - Fork hook: logs new process creation events.
-   - Schedule hook: forces rescheduling for low-synergy processes (LATENT/IDLE).
-   - Control switch: echo 1 &gt; /proc/5dos/hook
+Proc Interface. /proc/5dos/top returns the top 20 active entities ranked by κ, showing PID, COMM, KAPPA, SIGMA, STATE, I(%), and TH. /proc/5dos/status returns system-wide statistics including System Average Kappa, System Average Sigma, total entity count, update interval, scheduling and hook switch states, global maximums for each dimension, ontological state distribution, and the core ratio-method formulas. /proc/5dos/schedmap returns the scheduling audit trail showing which processes had their nice values adjusted. /proc/5dos/control accepts write 1 to enable 5D scheduling and write 0 to disable. /proc/5dos/hook accepts write 1 to enable the hook system and write 0 to disable.
 
-![5DOS Architecture](docs/5DOS_Architecture.png)
-Key Fixes in v0.4.3
--------------------
-1. Read-Write Lock Protection (rwlock)
-   - The update timer acquires a write lock when writing the global entity table.
-   - The scheduling thread and /proc read handlers acquire read locks.
-   - Completely eliminates race conditions that previously caused sporadic ¦Ê=0 misclassifications.
+Build and Run. Build environment: tested on VMware Workstation 17 with Ubuntu 22.04 LTS, kernel Linux 6.8.0-111-generic, compiler gcc-12. Commands: make clean, make, sudo rmmod 5dos_os (if old version present), sudo insmod 5dos_os.ko. Enable scheduling: echo 1 | sudo tee /proc/5dos/control. Enable hooks: echo 1 | sudo tee /proc/5dos/hook. View output: cat /proc/5dos/top, cat /proc/5dos/status, cat /proc/5dos/schedmap. View hook logs: sudo dmesg | grep 5DOS-HOOK. Unload: sudo rmmod 5dos_os.
 
-2. Kernel Thread Protection (PF_KTHREAD)
-   - Both the scheduling layer and the hook layer skip kernel threads (irq, migration, watchdog, etc.).
-   - Never modifies the nice value of kernel threads, preventing system crashes.
+File Manifest. 5dos-os.c contains the kernel module source implementing diagnosis, scheduling, hooks, and locking. Makefile contains the build script with shortcuts for load, unload, reload, status, top, schedmap, enable, disable, hook-on, and hook-off.
 
-/proc Interface
----------------
-/proc/5dos/top       Top-20 entity ranking (existing)
-/proc/5dos/status    System-wide status (shows scheduling/hook switches)
-/proc/5dos/schedmap  Scheduling audit trail (records user-space priority adjustments only)
-/proc/5dos/control   Write 1 to enable 5D scheduling, 0 to disable
-/proc/5dos/hook      Write 1 to enable the hook system, 0 to disable
+Cautions. Scheduling intervention only modifies user-space processes with SCHED_NORMAL, SCHED_BATCH, or SCHED_IDLE policies; real-time processes and kernel threads are never touched. The hook system depends on kprobe; if kernel_clone or __schedule symbols are not resolvable, the hooks print a warning and degrade without affecting diagnosis or scheduling. Always unload any previous version with sudo rmmod 5dos_os before loading a new one.
 
-Build Environment
------------------
-Tested on: VMware Workstation 17 + Ubuntu 22.04 LTS
-Kernel:     Linux 6.8.0-111-generic
-Compiler:   gcc-12
-
-Build and Load
---------------
-cd 5dos-os
-make clean
-make
-sudo rmmod 5dos_os   # unload old version if present
-sudo insmod 5dos_os.ko
-
-Enable 5D Scheduling
-----------------------
-echo 1 | sudo tee /proc/5dos/control
-cat /proc/5dos/schedmap    # view priority adjustment records
-
-Enable Hook System
-------------------
-echo 1 | sudo tee /proc/5dos/hook
-# View hook logs in dmesg: sudo dmesg | grep 5DOS-HOOK
-
-View Output
------------
-cat /proc/5dos/top
-cat /proc/5dos/status
-cat /proc/5dos/schedmap
-
-Unload
-------
-sudo rmmod 5dos_os
-
-File Manifest
--------------
-5dos-os.c   Kernel module source (diagnosis + scheduling + hooks + locking, ~550 lines)
-Makefile    Build script (includes enable/disable/hook-on/hook-off shortcuts)
-README      This document
-
-Cautions
---------
-1. Scheduling intervention only modifies user-space processes with SCHED_NORMAL/BATCH/IDLE policies. Real-time processes and kernel threads are never touched.
-2. The hook system depends on kprobe. If kernel_clone or __schedule symbols are not resolvable, the hooks gracefully degrade (print a warning) without affecting diagnosis or scheduling.
-3. The kernel thread 5dos-sched executes every 2 seconds; observe its effects via /proc/5dos/schedmap.
-4. If a previous version was loaded, always run "sudo rmmod 5dos_os" before loading a new one.
-## Related Artifacts
-
-- 5DOS-OS (this repo): Zenodo DOI [10.5281/zenodo.20399222](https://doi.org/10.5281/zenodo.20399222)
-- 5DOS-Probe (Perception Layer): Zenodo DOI [10.5281/zenodo.20376186](https://doi.org/10.5281/zenodo.20376186)
-- 5DOS Architecture Paper: Zenodo DOI [10.5281/zenodo.20376185](https://doi.org/10.5281/zenodo.20376185)
+Related Artifacts. 5DOS-OS Kernel Module: Zenodo DOI 10.5281/zenodo.20399222. 5DOS Real-time Monitor (GUI Perception Layer): Zenodo DOI 10.5281/zenodo.20376185. 5D-ST Theoretical Preprint: Zenodo DOI 10.5281/zenodo.19925248.
