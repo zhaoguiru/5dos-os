@@ -1,0 +1,11 @@
+config 5DOS_OS
+    bool "5DOS Five-Dimensional Operating System"
+    depends on PROC_FS
+    depends on KPROBES
+    help
+      Enable the 5DOS kernel subsystem for five-dimensional entity
+      monitoring, ontological state classification, and priority
+      scheduling based on synergy coefficients (κ, σ).
+
+      This module provides /proc/5dos/ interfaces for runtime diagnostics
+      and can adjust process nice values according to 5D state.

@@ -1,0 +1,98 @@
+5DOS-OS Kernel Module v0.4.3
+=============================
+"带钩子和K值优先级的操作系统"
+
+作者：赵桂儒 (Guiru Zhao) <zhaoguiru@gmail.com>
+日期：2026-05-25
+许可：GPL
+
+一、架构概览
+------------
+5DOS-OS 是在 Linux 内核上构建的五维操作系统原型，包含三层：
+
+1. 五维诊断层（Diagnostic Layer）
+   - 周期性扫描所有进程，计算五维协同系数 κ
+   - 输出：/proc/5dos/top, /proc/5dos/status
+
+2. 五维调度层（Scheduling Layer）
+   - 内核线程 "5dos-sched" 每 2 秒根据 κ 值调整进程 nice
+   - K值优先级映射：
+       STABLE  → nice = -20 (最高优先级)
+       GROWTH  → nice = -10
+       BIRTH   → nice = 0
+       IDLE    → nice = 10
+       LATENT  → nice = 19 (最低优先级)
+   - 控制开关：echo 1 > /proc/5dos/control
+
+3. 五维钩子层（Hook Layer）
+   - kprobe 拦截 kernel_clone（fork）和 __schedule
+   - fork 钩子：新进程创建时触发日志
+   - schedule 钩子：低协同进程（LATENT/IDLE）强制触发重新调度
+   - 控制开关：echo 1 > /proc/5dos/hook
+
+二、v0.4.3 关键修复
+-------------------
+1. 读写锁保护（rwlock）
+   - update 定时器写 g 结构体时加写锁
+   - 调度线程和 proc 读取函数读 g 时加读锁
+   - 彻底消除并发导致的 κ=0 误判
+
+2. 内核线程保护（PF_KTHREAD）
+   - 调度层和钩子层均跳过内核线程（irq, migration, watchdog 等）
+   - 绝不修改内核线程 nice，避免系统崩溃
+
+三、新增 /proc 接口
+-------------------
+/proc/5dos/top       Top 20 实体排名（原有）
+/proc/5dos/status    系统全局状态（显示调度/钩子开关）
+/proc/5dos/schedmap  调度映射表（只显示用户态进程调整记录）
+/proc/5dos/control   写 1 启用五维调度，写 0 禁用
+/proc/5dos/hook      写 1 启用钩子系统，写 0 禁用
+
+四、编译环境
+------------
+测试平台：VMware Workstation 17 + Ubuntu 22.04 LTS
+内核版本：Linux 6.8.0-111-generic
+编译器：gcc-12
+
+五、编译加载
+------------
+cd 5dos-os
+make clean
+make
+sudo rmmod 5dos_os   # 卸载旧版
+sudo insmod 5dos_os.ko
+
+六、启用五维调度
+----------------
+echo 1 | sudo tee /proc/5dos/control
+cat /proc/5dos/schedmap    # 查看优先级调整记录
+
+七、启用钩子系统
+----------------
+echo 1 | sudo tee /proc/5dos/hook
+# 查看 dmesg 中的钩子日志：sudo dmesg | grep 5DOS-HOOK
+
+八、查看输出
+------------
+cat /proc/5dos/top
+cat /proc/5dos/status
+cat /proc/5dos/schedmap
+
+九、卸载
+--------
+sudo rmmod 5dos_os
+
+十、文件清单
+------------
+5dos-os.c   内核模块源码（诊断 + 调度 + 钩子 + 锁保护，~550行）
+Makefile    编译脚本（含 enable/disable/hook-on/hook-off 快捷命令）
+README      本说明
+
+十一、注意事项
+--------------
+1. 调度干预只修改 SCHED_NORMAL/BATCH/IDLE 用户态进程，不动实时进程和内核线程
+2. 钩子系统依赖 kprobe，若 kernel_clone 或 __schedule 符号不可解析，
+   钩子会自动降级（打印警告，不影响诊断和调度功能）
+3. 内核线程 5dos-sched 每 2 秒执行一次，可通过 /proc/5dos/schedmap 观察效果
+4. 若之前加载过旧版，务必先 sudo rmmod 5dos_os 再加载新版
